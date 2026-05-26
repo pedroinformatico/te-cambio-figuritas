@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparador de figuritas</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e3e3e7;
+    --text: #1b1b1f;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-hover: #245b97;
+    --tab-inactive: #eef0f3;
+    --code-bg: #f3f4f6;
+    --ok: #047857;
+    --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131418;
+      --panel: #1c1d22;
+      --border: #2c2e36;
+      --text: #ececef;
+      --muted: #9aa0aa;
+      --accent: #5aa0e8;
+      --accent-hover: #75b3f0;
+      --tab-inactive: #24262d;
+      --code-bg: #242630;
+      --ok: #34d399;
+      --warn: #f59e0b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 10px 16px;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab:hover { color: var(--text); }
+
+  .mode-help {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .mode-help strong { color: var(--text); }
+  .mode-help code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 720px) {
+    .inputs { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 280px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+  .actions { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border: 0;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button.ghost:hover { color: var(--text); border-color: var(--accent); }
+
+  .results { display: grid; gap: 16px; }
+  .result-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .result-title { font-weight: 600; font-size: 14px; }
+  .result-meta { font-size: 12px; color: var(--muted); margin-left: 8px; }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--ok); border-color: var(--ok); }
+
+  pre.result-body {
+    margin: 0;
+    padding: 12px;
+    background: var(--code-bg);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 480px;
+    overflow: auto;
+  }
+  pre.empty { color: var(--muted); font-style: italic; }
+
+  .notice {
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--warn);
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Comparador de figuritas</h1>
+    <p>Compara dos listas exportadas desde <code>figuritas.app</code> y obten el intercambio en formato pegable.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-mode="intercambio">Intercambio (2 personas)</button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="interseccion">Tengo vs Falta</button>
+  </div>
+
+  <div id="mode-help" class="mode-help"></div>
+
+  <div class="inputs">
+    <div class="panel">
+      <label id="label-a" for="input-a">Lista de Persona A</label>
+      <textarea id="input-a" spellcheck="false" placeholder="Pega aquí la lista de A..."></textarea>
+    </div>
+    <div class="panel">
+      <label id="label-b" for="input-b">Lista de Persona B</label>
+      <textarea id="input-b" spellcheck="false" placeholder="Pega aquí la lista de B..."></textarea>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="btn-compare">Comparar</button>
+    <button class="ghost" id="btn-clear">Limpiar</button>
+    <button class="ghost" id="btn-example">Cargar ejemplo</button>
+  </div>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <div id="results" class="results"></div>
+</div>
+
+<script>
+"use strict";
+
+// ---------- parsing ----------
+
+function normalize(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
+function detectSection(line) {
+  const n = normalize(line);
+  if (n === 'me faltan' || n === 'faltan' || n === 'faltantes') return 'missing';
+  if (n === 'repetidas' || n === 'repes' || n === 'repe') return 'duplicates';
+  return null;
+}
+
+const LINE_RE = /^([A-Z]{2,4})\s*(.*?)\s*:\s*(.+)$/;
+
+function addEntry(map, code, emoji, nums) {
+  let entry = map.get(code);
+  if (!entry) {
+    entry = { emoji: emoji || '', nums: new Set() };
+    map.set(code, entry);
+  }
+  if (!entry.emoji && emoji) entry.emoji = emoji;
+  for (const n of nums) entry.nums.add(n);
+}
+
+function parseList(text) {
+  const missing = new Map();
+  const duplicates = new Map();
+  const all = new Map();
+  let current = null;
+
+  const lines = text.split(/\r?\n/);
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    const section = detectSection(line);
+    if (section) { current = section; continue; }
+
+    const m = line.match(LINE_RE);
+    if (!m) continue;
+
+    const [, code, emojiRaw, numsRaw] = m;
+    const emoji = emojiRaw.trim();
+    const nums = numsRaw
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => /^\d+$/.test(s))
+      .map(Number);
+    if (!nums.length) continue;
+
+    addEntry(all, code, emoji, nums);
+    if (current === 'missing') addEntry(missing, code, emoji, nums);
+    else if (current === 'duplicates') addEntry(duplicates, code, emoji, nums);
+  }
+
+  return { missing, duplicates, all };
+}
+
+// ---------- intersection ----------
+
+function intersect(mapA, mapB) {
+  const out = new Map();
+  for (const [code, a] of mapA) {
+    const b = mapB.get(code);
+    if (!b) continue;
+    const common = new Set();
+    for (const n of a.nums) if (b.nums.has(n)) common.add(n);
+    if (!common.size) continue;
+    out.set(code, { emoji: a.emoji || b.emoji, nums: common });
+  }
+  return out;
+}
+
+function totalCount(map) {
+  let t = 0;
+  for (const { nums } of map.values()) t += nums.size;
+  return t;
+}
+
+function formatMap(map) {
+  if (!map.size) return '';
+  const codes = [...map.keys()].sort();
+  return codes.map(code => {
+    const { emoji, nums } = map.get(code);
+    const sorted = [...nums].sort((a, b) => a - b);
+    return `${code}${emoji ? ' ' + emoji : ''}: ${sorted.join(', ')}`;
+  }).join('\n');
+}
+
+// ---------- UI helpers (safe DOM construction) ----------
+
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else if (k === 'dataset') Object.assign(node.dataset, v);
+    else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return node;
+}
+
+function buildHelp(mode) {
+  if (mode === 'intercambio') {
+    return [
+      'Pega la lista completa de cada persona (con secciones ',
+      el('strong', { text: 'Me faltan' }),
+      ' y ',
+      el('strong', { text: 'Repetidas' }),
+      '). Obtienes dos bloques: lo que cada uno puede darle al otro.',
+    ];
+  }
+  return [
+    'En ',
+    el('strong', { text: 'Tengo' }),
+    ' pega lo que tienes (típicamente tus repetidas). En ',
+    el('strong', { text: 'Falta' }),
+    ' pega lo que busca la otra persona. Obtienes ',
+    el('strong', { text: 'las que te interesan' }),
+    ' — láminas que tú tienes y la otra persona necesita.',
+  ];
+}
+
+// ---------- UI state ----------
+
+const els = {
+  tabs: document.querySelectorAll('.tab'),
+  labelA: document.getElementById('label-a'),
+  labelB: document.getElementById('label-b'),
+  inputA: document.getElementById('input-a'),
+  inputB: document.getElementById('input-b'),
+  btnCompare: document.getElementById('btn-compare'),
+  btnClear: document.getElementById('btn-clear'),
+  btnExample: document.getElementById('btn-example'),
+  notice: document.getElementById('notice'),
+  results: document.getElementById('results'),
+  modeHelp: document.getElementById('mode-help'),
+};
+
+let mode = 'intercambio';
+
+const LABELS = {
+  intercambio: {
+    a: 'Lista de Persona A', b: 'Lista de Persona B',
+    placeholderA: 'Pega aquí la lista completa de A (con Me faltan y Repetidas)...',
+    placeholderB: 'Pega aquí la lista completa de B (con Me faltan y Repetidas)...',
+  },
+  interseccion: {
+    a: 'Tengo', b: 'Falta',
+    placeholderA: 'Pega lo que tienes (ej. tus repetidas)...',
+    placeholderB: 'Pega lo que la otra persona necesita (sus faltantes)...',
+  },
+};
+
+function setMode(newMode) {
+  mode = newMode;
+  for (const tab of els.tabs) {
+    tab.setAttribute('aria-selected', tab.dataset.mode === mode ? 'true' : 'false');
+  }
+  els.modeHelp.replaceChildren(...buildHelp(mode).map(c => typeof c === 'string' ? document.createTextNode(c) : c));
+  els.labelA.textContent = LABELS[mode].a;
+  els.labelB.textContent = LABELS[mode].b;
+  els.inputA.placeholder = LABELS[mode].placeholderA;
+  els.inputB.placeholder = LABELS[mode].placeholderB;
+  clearResults();
+}
+
+function showNotice(msg) {
+  els.notice.textContent = msg;
+  els.notice.hidden = false;
+}
+
+function clearNotice() {
+  els.notice.hidden = true;
+  els.notice.textContent = '';
+}
+
+function clearResults() {
+  els.results.replaceChildren();
+  clearNotice();
+}
+
+function renderResultBlock({ title, meta, body }) {
+  const copyBtn = el('button', {
+    class: 'copy-btn',
+    type: 'button',
+    text: 'Copiar',
+  });
+  if (!body) copyBtn.disabled = true;
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(body);
+      copyBtn.textContent = 'Copiado';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = 'Copiar';
+        copyBtn.classList.remove('copied');
+      }, 1400);
+    } catch {
+      copyBtn.textContent = 'Error';
+      setTimeout(() => { copyBtn.textContent = 'Copiar'; }, 1400);
+    }
+  });
+
+  const block = el('div', { class: 'result-block' }, [
+    el('div', { class: 'result-head' }, [
+      el('div', {}, [
+        el('span', { class: 'result-title', text: title }),
+        meta ? el('span', { class: 'result-meta', text: meta }) : null,
+      ]),
+      copyBtn,
+    ]),
+    el('pre', {
+      class: 'result-body' + (body ? '' : ' empty'),
+      text: body || '(sin coincidencias)',
+    }),
+  ]);
+
+  els.results.appendChild(block);
+}
+
+function runIntercambio() {
+  const a = parseList(els.inputA.value);
+  const b = parseList(els.inputB.value);
+
+  if (!a.missing.size && !a.duplicates.size) {
+    showNotice('La lista de A no tiene secciones "Me faltan" ni "Repetidas". Para el modo intercambio se requieren ambas secciones.');
+    return;
+  }
+  if (!b.missing.size && !b.duplicates.size) {
+    showNotice('La lista de B no tiene secciones "Me faltan" ni "Repetidas". Para el modo intercambio se requieren ambas secciones.');
+    return;
+  }
+
+  const aToB = intersect(a.duplicates, b.missing);
+  const bToA = intersect(b.duplicates, a.missing);
+
+  renderResultBlock({
+    title: 'A le da a B',
+    meta: `${totalCount(aToB)} láminas · ${aToB.size} países`,
+    body: formatMap(aToB),
+  });
+  renderResultBlock({
+    title: 'B le da a A',
+    meta: `${totalCount(bToA)} láminas · ${bToA.size} países`,
+    body: formatMap(bToA),
+  });
+}
+
+function runInterseccion() {
+  const a = parseList(els.inputA.value);
+  const b = parseList(els.inputB.value);
+
+  if (!a.all.size) { showNotice('No se pudo parsear ninguna línea de "Tengo".'); return; }
+  if (!b.all.size) { showNotice('No se pudo parsear ninguna línea de "Falta".'); return; }
+
+  const common = intersect(a.all, b.all);
+  renderResultBlock({
+    title: 'Las que te interesan',
+    meta: `${totalCount(common)} láminas · ${common.size} países`,
+    body: formatMap(common),
+  });
+}
+
+function run() {
+  clearResults();
+  if (mode === 'intercambio') runIntercambio();
+  else runInterseccion();
+}
+
+// ---------- example data ----------
+
+const EXAMPLE_A = `Me faltan
+FWC 🏆: 3
+MEX 🇲🇽: 4, 8, 9, 12, 15, 18, 19
+KOR 🇰🇷: 1, 3, 4, 11
+ARG 🇦🇷: 1, 3, 5, 9, 10, 11, 12, 14, 15, 17, 18, 19, 20
+BRA 🇧🇷: 2, 6, 16, 20
+
+Repetidas
+FWC 📜: 9, 10, 13, 14, 19
+MEX 🇲🇽: 6, 11, 16, 20
+KOR 🇰🇷: 8, 10, 12, 14, 15, 17, 18
+ARG 🇦🇷: 2, 7, 13
+BRA 🇧🇷: 8, 9, 12, 14, 17, 18`;
+
+const EXAMPLE_B = `Me faltan
+FWC 🏆: 9, 13
+MEX 🇲🇽: 6, 11
+KOR 🇰🇷: 8, 12, 18
+ARG 🇦🇷: 2, 7, 13
+BRA 🇧🇷: 8, 9
+
+Repetidas
+FWC 📜: 3
+MEX 🇲🇽: 4, 8, 19
+KOR 🇰🇷: 1, 3
+ARG 🇦🇷: 5, 10, 14, 15
+BRA 🇧🇷: 2, 16`;
+
+const EXAMPLE_TENGO = `FWC 📜: 9, 10, 13, 14, 19
+MEX 🇲🇽: 6, 11, 16, 20
+KOR 🇰🇷: 8, 10, 12, 14, 15, 17, 18
+ARG 🇦🇷: 2, 7, 13
+BRA 🇧🇷: 8, 9, 12, 14, 17, 18`;
+
+const EXAMPLE_FALTA = `FWC 🏆: 9, 13
+MEX 🇲🇽: 6, 11
+KOR 🇰🇷: 8, 12, 18
+ARG 🇦🇷: 2, 7, 13
+BRA 🇧🇷: 8, 9`;
+
+// ---------- wiring ----------
+
+for (const tab of els.tabs) {
+  tab.addEventListener('click', () => setMode(tab.dataset.mode));
+}
+els.btnCompare.addEventListener('click', run);
+els.btnClear.addEventListener('click', () => {
+  els.inputA.value = '';
+  els.inputB.value = '';
+  clearResults();
+});
+els.btnExample.addEventListener('click', () => {
+  if (mode === 'intercambio') {
+    els.inputA.value = EXAMPLE_A;
+    els.inputB.value = EXAMPLE_B;
+  } else {
+    els.inputA.value = EXAMPLE_TENGO;
+    els.inputB.value = EXAMPLE_FALTA;
+  }
+  clearResults();
+});
+
+setMode('intercambio');
+</script>
+</body>
+</html>
