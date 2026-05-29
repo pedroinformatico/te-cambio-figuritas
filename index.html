@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Comparador de figuritas</title>
+<title>Te cambio figuritas</title>
 <style>
   :root {
     --bg: #f7f7f8;
@@ -13,7 +13,6 @@
     --muted: #6b7280;
     --accent: #2b6cb0;
     --accent-hover: #245b97;
-    --tab-inactive: #eef0f3;
     --code-bg: #f3f4f6;
     --ok: #047857;
     --warn: #b45309;
@@ -27,7 +26,6 @@
       --muted: #9aa0aa;
       --accent: #5aa0e8;
       --accent-hover: #75b3f0;
-      --tab-inactive: #24262d;
       --code-bg: #242630;
       --ok: #34d399;
       --warn: #f59e0b;
@@ -46,25 +44,7 @@
   header h1 { margin: 0 0 4px; font-size: 22px; }
   header p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
 
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
-  .tab {
-    padding: 10px 16px;
-    background: transparent;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--muted);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    margin-bottom: -1px;
-  }
-  .tab[aria-selected="true"] {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-  .tab:hover { color: var(--text); }
-
-  .mode-help {
+  .help {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -73,13 +53,7 @@
     color: var(--muted);
     margin-bottom: 16px;
   }
-  .mode-help strong { color: var(--text); }
-  .mode-help code {
-    background: var(--code-bg);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
+  .help strong { color: var(--text); }
 
   .inputs {
     display: grid;
@@ -99,11 +73,28 @@
     display: flex;
     flex-direction: column;
   }
-  .panel label {
-    font-size: 13px;
-    font-weight: 600;
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 8px;
   }
+  .panel-head label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .paste-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .paste-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .paste-btn.pasted { color: var(--ok); border-color: var(--ok); }
+
   textarea {
     width: 100%;
     min-height: 280px;
@@ -196,25 +187,28 @@
 <body>
 <div class="container">
   <header>
-    <h1>Comparador de figuritas</h1>
-    <p>Compara dos listas exportadas desde <code>figuritas.app</code> y obten el intercambio en formato pegable.</p>
+    <h1>Te cambio figuritas</h1>
+    <p>Compara dos listas exportadas desde <code>figuritas.app</code> y obten las coincidencias en formato pegable.</p>
   </header>
 
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" aria-selected="true" data-mode="intercambio">Intercambio (2 personas)</button>
-    <button class="tab" role="tab" aria-selected="false" data-mode="interseccion">Tengo vs Falta</button>
+  <div class="help">
+    En <strong>Tengo</strong> pega lo que tienes (tus repetidas). En <strong>Falta</strong> pega lo que busca la otra persona. Obtienes <strong>las que te interesan</strong> — láminas que tú tienes y la otra persona necesita.
   </div>
-
-  <div id="mode-help" class="mode-help"></div>
 
   <div class="inputs">
     <div class="panel">
-      <label id="label-a" for="input-a">Lista de Persona A</label>
-      <textarea id="input-a" spellcheck="false" placeholder="Pega aquí la lista de A..."></textarea>
+      <div class="panel-head">
+        <label for="input-a">Tengo</label>
+        <button class="paste-btn" type="button" data-target="input-a">Pegar</button>
+      </div>
+      <textarea id="input-a" spellcheck="false" placeholder="Pega lo que tienes (ej. tus repetidas)..."></textarea>
     </div>
     <div class="panel">
-      <label id="label-b" for="input-b">Lista de Persona B</label>
-      <textarea id="input-b" spellcheck="false" placeholder="Pega aquí la lista de B..."></textarea>
+      <div class="panel-head">
+        <label for="input-b">Falta</label>
+        <button class="paste-btn" type="button" data-target="input-b">Pegar</button>
+      </div>
+      <textarea id="input-b" spellcheck="false" placeholder="Pega lo que la otra persona necesita (sus faltantes)..."></textarea>
     </div>
   </div>
 
@@ -258,37 +252,21 @@ function addEntry(map, code, emoji, nums) {
 }
 
 function parseList(text) {
-  const missing = new Map();
-  const duplicates = new Map();
   const all = new Map();
-  let current = null;
-
   const lines = text.split(/\r?\n/);
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
-
-    const section = detectSection(line);
-    if (section) { current = section; continue; }
-
+    if (detectSection(line)) continue;
     const m = line.match(LINE_RE);
     if (!m) continue;
-
     const [, code, emojiRaw, numsRaw] = m;
     const emoji = emojiRaw.trim();
-    const nums = numsRaw
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => /^\d+$/.test(s))
-      .map(Number);
+    const nums = numsRaw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)).map(Number);
     if (!nums.length) continue;
-
     addEntry(all, code, emoji, nums);
-    if (current === 'missing') addEntry(missing, code, emoji, nums);
-    else if (current === 'duplicates') addEntry(duplicates, code, emoji, nums);
   }
-
-  return { missing, duplicates, all };
+  return all;
 }
 
 // ---------- intersection ----------
@@ -322,179 +300,78 @@ function formatMap(map) {
   }).join('\n');
 }
 
-// ---------- UI helpers (safe DOM construction) ----------
+// ---------- UI ----------
 
-function el(tag, props = {}, children = []) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (k === 'class') node.className = v;
-    else if (k === 'text') node.textContent = v;
-    else if (k === 'dataset') Object.assign(node.dataset, v);
-    else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
-    else node.setAttribute(k, v);
-  }
-  for (const c of children) {
-    if (c == null) continue;
-    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-  }
-  return node;
-}
-
-function buildHelp(mode) {
-  if (mode === 'intercambio') {
-    return [
-      'Pega la lista completa de cada persona (con secciones ',
-      el('strong', { text: 'Me faltan' }),
-      ' y ',
-      el('strong', { text: 'Repetidas' }),
-      '). Obtienes dos bloques: lo que cada uno puede darle al otro.',
-    ];
-  }
-  return [
-    'En ',
-    el('strong', { text: 'Tengo' }),
-    ' pega lo que tienes (típicamente tus repetidas). En ',
-    el('strong', { text: 'Falta' }),
-    ' pega lo que busca la otra persona. Obtienes ',
-    el('strong', { text: 'las que te interesan' }),
-    ' — láminas que tú tienes y la otra persona necesita.',
-  ];
-}
-
-// ---------- UI state ----------
-
-const els = {
-  tabs: document.querySelectorAll('.tab'),
-  labelA: document.getElementById('label-a'),
-  labelB: document.getElementById('label-b'),
-  inputA: document.getElementById('input-a'),
-  inputB: document.getElementById('input-b'),
-  btnCompare: document.getElementById('btn-compare'),
-  btnClear: document.getElementById('btn-clear'),
-  btnExample: document.getElementById('btn-example'),
-  notice: document.getElementById('notice'),
-  results: document.getElementById('results'),
-  modeHelp: document.getElementById('mode-help'),
-};
-
-let mode = 'intercambio';
-
-const LABELS = {
-  intercambio: {
-    a: 'Lista de Persona A', b: 'Lista de Persona B',
-    placeholderA: 'Pega aquí la lista completa de A (con Me faltan y Repetidas)...',
-    placeholderB: 'Pega aquí la lista completa de B (con Me faltan y Repetidas)...',
-  },
-  interseccion: {
-    a: 'Tengo', b: 'Falta',
-    placeholderA: 'Pega lo que tienes (ej. tus repetidas)...',
-    placeholderB: 'Pega lo que la otra persona necesita (sus faltantes)...',
-  },
-};
-
-function setMode(newMode) {
-  mode = newMode;
-  for (const tab of els.tabs) {
-    tab.setAttribute('aria-selected', tab.dataset.mode === mode ? 'true' : 'false');
-  }
-  els.modeHelp.replaceChildren(...buildHelp(mode).map(c => typeof c === 'string' ? document.createTextNode(c) : c));
-  els.labelA.textContent = LABELS[mode].a;
-  els.labelB.textContent = LABELS[mode].b;
-  els.inputA.placeholder = LABELS[mode].placeholderA;
-  els.inputB.placeholder = LABELS[mode].placeholderB;
-  clearResults();
-}
+const inputA = document.getElementById('input-a');
+const inputB = document.getElementById('input-b');
+const notice = document.getElementById('notice');
+const results = document.getElementById('results');
 
 function showNotice(msg) {
-  els.notice.textContent = msg;
-  els.notice.hidden = false;
+  notice.textContent = msg;
+  notice.hidden = false;
 }
 
-function clearNotice() {
-  els.notice.hidden = true;
-  els.notice.textContent = '';
-}
-
-function clearResults() {
-  els.results.replaceChildren();
-  clearNotice();
+function clearAll() {
+  results.replaceChildren();
+  notice.hidden = true;
+  notice.textContent = '';
 }
 
 function renderResultBlock({ title, meta, body }) {
-  const copyBtn = el('button', {
-    class: 'copy-btn',
-    type: 'button',
-    text: 'Copiar',
-  });
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-btn';
+  copyBtn.type = 'button';
+  copyBtn.textContent = 'Copiar';
   if (!body) copyBtn.disabled = true;
   copyBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(body);
       copyBtn.textContent = 'Copiado';
       copyBtn.classList.add('copied');
-      setTimeout(() => {
-        copyBtn.textContent = 'Copiar';
-        copyBtn.classList.remove('copied');
-      }, 1400);
+      setTimeout(() => { copyBtn.textContent = 'Copiar'; copyBtn.classList.remove('copied'); }, 1400);
     } catch {
       copyBtn.textContent = 'Error';
       setTimeout(() => { copyBtn.textContent = 'Copiar'; }, 1400);
     }
   });
 
-  const block = el('div', { class: 'result-block' }, [
-    el('div', { class: 'result-head' }, [
-      el('div', {}, [
-        el('span', { class: 'result-title', text: title }),
-        meta ? el('span', { class: 'result-meta', text: meta }) : null,
-      ]),
-      copyBtn,
-    ]),
-    el('pre', {
-      class: 'result-body' + (body ? '' : ' empty'),
-      text: body || '(sin coincidencias)',
-    }),
-  ]);
+  const titleEl = document.createElement('span');
+  titleEl.className = 'result-title';
+  titleEl.textContent = title;
 
-  els.results.appendChild(block);
-}
-
-function runIntercambio() {
-  const a = parseList(els.inputA.value);
-  const b = parseList(els.inputB.value);
-
-  if (!a.missing.size && !a.duplicates.size) {
-    showNotice('La lista de A no tiene secciones "Me faltan" ni "Repetidas". Para el modo intercambio se requieren ambas secciones.');
-    return;
-  }
-  if (!b.missing.size && !b.duplicates.size) {
-    showNotice('La lista de B no tiene secciones "Me faltan" ni "Repetidas". Para el modo intercambio se requieren ambas secciones.');
-    return;
+  const left = document.createElement('div');
+  left.appendChild(titleEl);
+  if (meta) {
+    const metaEl = document.createElement('span');
+    metaEl.className = 'result-meta';
+    metaEl.textContent = meta;
+    left.appendChild(metaEl);
   }
 
-  const aToB = intersect(a.duplicates, b.missing);
-  const bToA = intersect(b.duplicates, a.missing);
+  const head = document.createElement('div');
+  head.className = 'result-head';
+  head.appendChild(left);
+  head.appendChild(copyBtn);
 
-  renderResultBlock({
-    title: 'A le da a B',
-    meta: `${totalCount(aToB)} láminas · ${aToB.size} países`,
-    body: formatMap(aToB),
-  });
-  renderResultBlock({
-    title: 'B le da a A',
-    meta: `${totalCount(bToA)} láminas · ${bToA.size} países`,
-    body: formatMap(bToA),
-  });
+  const pre = document.createElement('pre');
+  pre.className = 'result-body' + (body ? '' : ' empty');
+  pre.textContent = body || '(sin coincidencias)';
+
+  const block = document.createElement('div');
+  block.className = 'result-block';
+  block.appendChild(head);
+  block.appendChild(pre);
+  results.appendChild(block);
 }
 
-function runInterseccion() {
-  const a = parseList(els.inputA.value);
-  const b = parseList(els.inputB.value);
-
-  if (!a.all.size) { showNotice('No se pudo parsear ninguna línea de "Tengo".'); return; }
-  if (!b.all.size) { showNotice('No se pudo parsear ninguna línea de "Falta".'); return; }
-
-  const common = intersect(a.all, b.all);
+function run() {
+  clearAll();
+  const a = parseList(inputA.value);
+  const b = parseList(inputB.value);
+  if (!a.size) { showNotice('No se pudo parsear ninguna línea de "Tengo".'); return; }
+  if (!b.size) { showNotice('No se pudo parsear ninguna línea de "Falta".'); return; }
+  const common = intersect(a, b);
   renderResultBlock({
     title: 'Las que te interesan',
     meta: `${totalCount(common)} láminas · ${common.size} países`,
@@ -502,41 +379,25 @@ function runInterseccion() {
   });
 }
 
-function run() {
-  clearResults();
-  if (mode === 'intercambio') runIntercambio();
-  else runInterseccion();
+// ---------- paste buttons ----------
+
+for (const btn of document.querySelectorAll('.paste-btn')) {
+  btn.addEventListener('click', async () => {
+    const target = document.getElementById(btn.dataset.target);
+    try {
+      const text = await navigator.clipboard.readText();
+      target.value = text;
+      btn.textContent = 'Pegado';
+      btn.classList.add('pasted');
+      setTimeout(() => { btn.textContent = 'Pegar'; btn.classList.remove('pasted'); }, 1200);
+    } catch {
+      btn.textContent = 'Sin permiso';
+      setTimeout(() => { btn.textContent = 'Pegar'; }, 1400);
+    }
+  });
 }
 
 // ---------- example data ----------
-
-const EXAMPLE_A = `Me faltan
-FWC 🏆: 3
-MEX 🇲🇽: 4, 8, 9, 12, 15, 18, 19
-KOR 🇰🇷: 1, 3, 4, 11
-ARG 🇦🇷: 1, 3, 5, 9, 10, 11, 12, 14, 15, 17, 18, 19, 20
-BRA 🇧🇷: 2, 6, 16, 20
-
-Repetidas
-FWC 📜: 9, 10, 13, 14, 19
-MEX 🇲🇽: 6, 11, 16, 20
-KOR 🇰🇷: 8, 10, 12, 14, 15, 17, 18
-ARG 🇦🇷: 2, 7, 13
-BRA 🇧🇷: 8, 9, 12, 14, 17, 18`;
-
-const EXAMPLE_B = `Me faltan
-FWC 🏆: 9, 13
-MEX 🇲🇽: 6, 11
-KOR 🇰🇷: 8, 12, 18
-ARG 🇦🇷: 2, 7, 13
-BRA 🇧🇷: 8, 9
-
-Repetidas
-FWC 📜: 3
-MEX 🇲🇽: 4, 8, 19
-KOR 🇰🇷: 1, 3
-ARG 🇦🇷: 5, 10, 14, 15
-BRA 🇧🇷: 2, 16`;
 
 const EXAMPLE_TENGO = `FWC 📜: 9, 10, 13, 14, 19
 MEX 🇲🇽: 6, 11, 16, 20
@@ -552,27 +413,17 @@ BRA 🇧🇷: 8, 9`;
 
 // ---------- wiring ----------
 
-for (const tab of els.tabs) {
-  tab.addEventListener('click', () => setMode(tab.dataset.mode));
-}
-els.btnCompare.addEventListener('click', run);
-els.btnClear.addEventListener('click', () => {
-  els.inputA.value = '';
-  els.inputB.value = '';
-  clearResults();
+document.getElementById('btn-compare').addEventListener('click', run);
+document.getElementById('btn-clear').addEventListener('click', () => {
+  inputA.value = '';
+  inputB.value = '';
+  clearAll();
 });
-els.btnExample.addEventListener('click', () => {
-  if (mode === 'intercambio') {
-    els.inputA.value = EXAMPLE_A;
-    els.inputB.value = EXAMPLE_B;
-  } else {
-    els.inputA.value = EXAMPLE_TENGO;
-    els.inputB.value = EXAMPLE_FALTA;
-  }
-  clearResults();
+document.getElementById('btn-example').addEventListener('click', () => {
+  inputA.value = EXAMPLE_TENGO;
+  inputB.value = EXAMPLE_FALTA;
+  clearAll();
 });
-
-setMode('intercambio');
 </script>
 </body>
 </html>
